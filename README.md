@@ -17,7 +17,7 @@ ComfyUI 的第三方自定义节点插件，用于无缝接入 **MiniMax (海螺
 1. 进入您的 ComfyUI 的 `custom_nodes` 目录。
 2. 克隆本仓库：
    ```bash
-   git clone https://github.com/您的用户名/Comfyui-MinimaxVideo.git
+   git clone https://github.com/rickSF/Comfyui-MinimaxVideo.git
    ```
    *(或者点击右上角 `Code -> Download ZIP`，解压后将文件夹放入 `custom_nodes` 目录中。)*
 3. **重启 ComfyUI**。
