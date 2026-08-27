@@ -1,21 +1,12 @@
-import importlib.util
-import os
+"""MiniMax ComfyUI extension.
 
+Re-exports the V1 (Hailuo) and V2 (H3) node classes plus their display-name
+mappings so ComfyUI can discover both nodes when this directory is loaded as
+a package under ``ComfyUI/custom_nodes``.
+"""
 
-def _load_local_module(module_filename: str):
-    module_path = os.path.join(os.path.dirname(__file__), module_filename)
-    spec = importlib.util.spec_from_file_location(module_filename, module_path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Unable to load module: {module_filename}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+from .minimax_video_generate import NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS
 
-
-_mod = _load_local_module("minimax_video_generate.py")
-
-NODE_CLASS_MAPPINGS = _mod.NODE_CLASS_MAPPINGS
-NODE_DISPLAY_NAME_MAPPINGS = _mod.NODE_DISPLAY_NAME_MAPPINGS
 
 __all__ = [
     "NODE_CLASS_MAPPINGS",
