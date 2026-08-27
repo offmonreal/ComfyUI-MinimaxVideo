@@ -1,56 +1,56 @@
 # ComfyUI-MinimaxVideo
 
-ComfyUI 的第三方自定义节点插件，用于无缝接入 **MiniMax (海螺)** 开放平台最新的视频生成大模型（Hailuo-2.3, Hailuo-02, T2V-01, S2V-01等），支持快速生成高质量的 AI 视频。
+A third-party custom node plugin for ComfyUI that provides seamless integration with the latest video generation models on the **MiniMax (Hailuo)** open platform (Hailuo-2.3, Hailuo-02, T2V-01, S2V-01, etc.), enabling fast creation of high-quality AI videos.
 
-## ✨ 核心特性
+## ✨ Key Features
 
-- **三种主流生成模式**：
-  - **📝 文生视频 (Text-to-Video)**：支持 `[左摇,上升]` 等 15 种专业运镜指令语法，实现电影级运镜控制。
-  - **🖼️ 图生视频 (Image-to-Video)**：传入单张参考图/首帧图，让静图秒变动态大片。
-  - **🧷 首尾帧视频 (First-and-Last-Frame)**：同时提供首帧与尾帧，精准控制视频起始与结尾画面（目前由 `MiniMax-Hailuo-02` 模型独家支持，节点会自动进行模型切换保障生成）。
-- **参数全面接轨官方最新 API**：支持时长（6秒/10秒）、分辨率（768P/1080P/720P）、提示词自动优化开关及水印开关等高级选项。
-- **隐私安全（零持久化）**：严禁将您的 API Key 提交到代码仓库。支持通过节点界面、环境变量（`MINIMAX_API_KEY`）或本地 `config.json` 灵活加载密钥。
-- **全异步轮询下载**：后端采用异步轮询机制获取任务状态，生成成功后自动调用 File API 下载并保存至 ComfyUI 输出目录。
+- **Three mainstream generation modes**:
+  - **📝 Text-to-Video**: Supports 15 professional camera-move command syntax tokens such as `[pan_left,tilt_up]` for cinematic camera control.
+  - **🖼️ Image-to-Video**: Pass a single reference image / first-frame image to turn a still picture into a dynamic clip.
+  - **🧷 First-and-Last-Frame Video**: Provide both a first frame and a last frame to precisely control the start and end of the video (currently supported exclusively by the `MiniMax-Hailuo-02` model; the node automatically switches to that model to guarantee generation).
+- **Full alignment with the latest official API parameters**: Supports duration (6s / 10s), resolution (768P / 1080P / 720P), automatic prompt optimization toggle, watermark toggle, and other advanced options.
+- **Privacy-safe (zero persistence)**: Never commit your API key to the codebase. Load the key flexibly via the node UI, the `MINIMAX_API_KEY` environment variable, or a local `config.json`.
+- **Fully asynchronous polling and download**: The backend uses an asynchronous polling mechanism to fetch task status. On success, it automatically calls the File API to download and save the result to the ComfyUI output directory.
 
-## 📦 安装说明
+## 📦 Installation
 
-1. 进入您的 ComfyUI 的 `custom_nodes` 目录。
-2. 克隆本仓库：
+1. Enter your ComfyUI `custom_nodes` directory.
+2. Clone this repository:
    ```bash
    git clone https://github.com/rickSF/Comfyui-MinimaxVideo.git
    ```
-   *(或者点击右上角 `Code -> Download ZIP`，解压后将文件夹放入 `custom_nodes` 目录中。)*
-3. **重启 ComfyUI**。
+   *(Or click `Code -> Download ZIP` in the upper-right corner, then unzip the folder into the `custom_nodes` directory.)*
+3. **Restart ComfyUI**.
 
-## ⚙️ 配置 API Key
+## ⚙️ Configuring the API Key
 
-您有三种方式为节点配置 API Key，优先级从高到低如下：
+There are three ways to configure the API key for the node. The priority from highest to lowest is:
 
-1. **直接在节点上填写**：在 ComfyUI 界面中，直接在 `🔑API Key` 输入框中填入密钥（最高优先级，推荐测试时使用）。
-2. **环境变量**：在电脑系统中添加环境变量 `MINIMAX_API_KEY`。
-3. **本地配置文件**（推荐长期使用）：
-   在插件根目录下，将 `config.json.example` 复制并重命名为 `config.json`，然后填入您的 API Key：
+1. **Enter directly on the node**: In the ComfyUI interface, type the key into the `🔑API Key` input box (highest priority, best for quick testing).
+2. **Environment variable**: Add the `MINIMAX_API_KEY` environment variable to your system.
+3. **Local config file** (recommended for long-term use):
+   In the plugin root directory, copy `config.json.example` and rename it to `config.json`, then fill in your API key:
    ```json
    {
-       "MINIMAX_API_KEY": "您的真实_API_KEY"
+       "MINIMAX_API_KEY": "YOUR_REAL_API_KEY"
    }
    ```
-   *注：`config.json` 已被加入 `.gitignore` 忽略列表，不用担心误提交到 GitHub。*
+   *Note: `config.json` is included in `.gitignore`, so it will never be accidentally committed to GitHub.*
 
-## 💡 使用指南
+## 💡 Usage Guide
 
-1. 启动 ComfyUI。
-2. 在空白处右键 / 双击搜索，在类别 `🤖Dapao-Toolbox`（或您自定义的类别）下找到并添加节点：**`🤖Minimax视频生成`**。
-3. 根据需要选择 `🎬生成模式`：
-   - **文生视频**：填写 `📝提示词` 即可。
-   - **图生视频**：需要连接原生的 `Load Image` 节点到本节点的 `🖼️首帧图` 或 `🖼️参考图(用于图生)` 接口。
-   - **首尾帧视频**：必须同时连接 `🖼️首帧图` 和 `🖼️尾帧图`。
+1. Launch ComfyUI.
+2. Right-click on an empty area / double-click to search, then locate and add the node under category `🤖Dapao-Toolbox` (or your custom category): **`🤖Minimax Video Generate`**.
+3. Choose the `🎬Generation Mode` you need:
+   - **Text-to-Video**: Fill in the `📝Prompt`.
+   - **Image-to-Video**: Connect a native `Load Image` node to the `🖼️First Frame Image` or `🖼️Reference Image (for Image-to-Video)` input of this node.
+   - **First-and-Last-Frame Video**: Both `🖼️First Frame Image` and `🖼️Last Frame Image` must be connected.
 
-## ⚠️ 注意事项
+## ⚠️ Notes
 
-- **首尾帧模型限制**：官方目前仅 `MiniMax-Hailuo-02` 模型支持首尾帧生成。当您选择首尾帧模式时，如果未选该模型，本节点会在后台自动帮您切换过去，并在控制台输出提示。
-- **排错建议**：如果工作流中有其他的第三方图片处理节点（例如 RunningHub 等相关的上传节点），请尽量移除，直接使用 ComfyUI 原生 `Load Image` 连接本节点，避免第三方节点的鉴权或网络错误干扰生成。
+- **First-and-Last-Frame model limitation**: Officially, only the `MiniMax-Hailuo-02` model supports first-and-last-frame generation. If you select the first-and-last-frame mode without picking that model, this node will automatically switch to it in the background and print a notice to the console.
+- **Troubleshooting tips**: If your workflow contains other third-party image-processing nodes (such as upload nodes from RunningHub and similar services), please remove them if possible and use the native ComfyUI `Load Image` node connected to this node directly. This avoids authentication or network errors from third-party nodes interfering with generation.
 
-## 📄 许可证
+## 📄 License
 
 MIT License
