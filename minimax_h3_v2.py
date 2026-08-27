@@ -12,7 +12,7 @@ validated locally before any HTTP request is sent.
 import time
 from typing import Any, Dict, List, Tuple
 
-from minimax_common import (
+from .minimax_common import (
     _get_api_key,
     download_file,
     http_json_request,
@@ -96,8 +96,7 @@ def _validate_aspect_ratio_for_mode(mode: str, aspect_ratio: str) -> None:
                 "Use aspect ratio 'adaptive'."
             )
     elif mode == "🖼️Reference Image-to-Video":
-        # adaptive is allowed; explicit supported ratios are also allowed.
-        # (already validated above by membership in V2_ASPECT_RATIOS)
+        # adaptive or any explicit supported ratio is allowed.
         return
     else:
         raise ValueError(f"Unknown generation mode: '{mode}'.")
@@ -180,6 +179,29 @@ def _build_content_items(
 
 
 # ---------------------------------------------------------------------------
+# Query response parser (split out for direct unit testing)
+# ---------------------------------------------------------------------------
+
+def parse_v2_query_response(task_resp: Dict[str, Any]) -> Tuple[str, str]:
+    """Parse a V2 query response.
+
+    Returns ``(status, video_url)``. ``video_url`` is only populated when
+    ``status == 'succeeded'`` and is read from ``task.content.url`` per the
+    official MiniMax V2 response shape:
+
+        {"task": {"id": "...", "status": "succeeded",
+                  "content": {"url": "..."}}}
+    """
+    task = task_resp.get("task") or {}
+    status = str(task.get("status") or "")
+    video_url = ""
+    if status == V2_STATUS_SUCCEEDED:
+        content = task.get("content") or {}
+        video_url = str(content.get("url") or "")
+    return status, video_url
+
+
+# ---------------------------------------------------------------------------
 # Node class
 # ---------------------------------------------------------------------------
 
@@ -211,7 +233,9 @@ class MinimaxH3VideoGenerate:
                 "📝Prompt": ("STRING", {"multiline": True, "default": ""}),
                 "🖼️Resolution": (V2_RESOLUTIONS, {"default": "768P"}),
                 "⏱️Duration (seconds)": ([str(d) for d in V2_DURATIONS], {"default": "6"}),
-                "📐Aspect Ratio": (V2_ASPECT_RATIOS, {"default": "adaptive"}),
+                # Default aspect ratio must be valid for the default mode
+                # (Text-to-Video), which forbids 'adaptive'.
+                "📐Aspect Ratio": (V2_ASPECT_RATIOS, {"default": "16:9"}),
                 "🌐Base URL": ("STRING", {"default": f"https://{V2_DEFAULT_HOST}"}),
                 "🔑API Key (PAYG)": ("STRING", {"default": ""}),
                 "⌛Max Wait (seconds)": ("INT", {"default": 1200, "min": 10, "max": 3600}),
@@ -233,7 +257,7 @@ class MinimaxH3VideoGenerate:
         prompt = str(kwargs.get("📝Prompt", "") or "")
         resolution = str(kwargs.get("🖼️Resolution", "768P"))
         duration = int(kwargs.get("⏱️Duration (seconds)", "6"))
-        aspect_ratio = str(kwargs.get("📐Aspect Ratio", "adaptive"))
+        aspect_ratio = str(kwargs.get("📐Aspect Ratio", "16:9"))
         base_url_raw = str(kwargs.get("🌐Base URL", f"https://{V2_DEFAULT_HOST}"))
         api_key_widget = str(kwargs.get("🔑API Key (PAYG)", "") or "")
         max_wait_s = int(kwargs.get("⌛Max Wait (seconds)", 1200))
@@ -284,12 +308,14 @@ class MinimaxH3VideoGenerate:
             reference_image=reference_image,
         )
 
+        # NOTE: the V2 wire parameter is named ``ratio``, NOT ``aspect_ratio``.
+        # The ComfyUI widget label remains "Aspect Ratio" for user clarity.
         payload: Dict[str, Any] = {
             "model": V2_MODEL,
             "content": content_items,
             "resolution": resolution,
             "duration": duration,
-            "aspect_ratio": aspect_ratio,
+            "ratio": aspect_ratio,
         }
 
         # ---- 1. Create the V2 task -----------------------------------------
@@ -311,12 +337,9 @@ class MinimaxH3VideoGenerate:
         while True:
             get_url = f"{base_url}{V2_PATH_QUERY_TEMPLATE.format(task_id=task_id)}"
             task_resp = http_json_request(method="GET", url=get_url, api_key=api_key)
-            status = str(task_resp.get("status") or "")
+            status, video_url = parse_v2_query_response(task_resp)
 
             if status == V2_STATUS_SUCCEEDED:
-                # URL lives at task.content.url per V2 documentation.
-                task_content = task_resp.get("content") or {}
-                video_url = str(task_content.get("url") or "")
                 if not video_url:
                     raise ValueError(
                         "V2 H3 task succeeded but no content.url was returned."

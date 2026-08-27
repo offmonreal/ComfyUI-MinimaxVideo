@@ -12,7 +12,7 @@ error rather than an opaque server-side rejection.
 import time
 from typing import Any, Dict, Tuple
 
-from minimax_common import (
+from .minimax_common import (
     _get_api_key,
     download_file,
     http_json_request,
@@ -105,7 +105,12 @@ V1_KNOWN_POLLING_STATUSES = {"Preparing", "Queueing", "Processing"}
 # Local validation
 # ---------------------------------------------------------------------------
 
-def _validate_v1_text_to_video(model: str, resolution: str, duration: str) -> None:
+def _validate_v1_text_to_video(
+    model: str, resolution: str, duration: str, prompt: str
+) -> None:
+    # Official V1 T2V requires a non-empty prompt.
+    if not prompt or not prompt.strip():
+        raise ValueError("Text-to-Video requires a non-empty prompt in V1.")
     if model == "MiniMax-Hailuo-2.3-Fast":
         raise ValueError(
             "MiniMax-Hailuo-2.3-Fast does not support Text-to-Video. "
@@ -129,7 +134,12 @@ def _validate_v1_text_to_video(model: str, resolution: str, duration: str) -> No
         )
 
 
-def _validate_v1_image_to_video(model: str, resolution: str, duration: str) -> None:
+def _validate_v1_image_to_video(
+    model: str, resolution: str, duration: str, prompt: str
+) -> None:
+    # Official V1 I2V also requires a non-empty prompt.
+    if not prompt or not prompt.strip():
+        raise ValueError("Image-to-Video requires a non-empty prompt in V1.")
     matrix = V1_IMAGE_TO_VIDEO_MATRIX.get(model)
     if matrix is None:
         raise ValueError(
@@ -148,7 +158,14 @@ def _validate_v1_image_to_video(model: str, resolution: str, duration: str) -> N
         )
 
 
-def _validate_v1_first_last_frame(model: str, resolution: str, duration: str) -> None:
+def _validate_v1_first_last_frame(
+    model: str, resolution: str, duration: str, prompt: str
+) -> None:
+    # First + Last Frame also requires a non-empty prompt per official docs.
+    if not prompt or not prompt.strip():
+        raise ValueError(
+            "First + Last Frame requires a non-empty prompt in V1."
+        )
     if model != "MiniMax-Hailuo-02":
         raise ValueError(
             "First + Last Frame mode requires the MiniMax-Hailuo-02 model in V1. "
@@ -169,6 +186,53 @@ def _validate_v1_first_last_frame(model: str, resolution: str, duration: str) ->
             f"Duration '{duration}s' is not allowed for First + Last Frame at "
             f"{resolution}. Allowed: {', '.join(d + 's' for d in allowed)}."
         )
+
+
+# ---------------------------------------------------------------------------
+# Payload builder (split out so it can be unit-tested without HTTP)
+# ---------------------------------------------------------------------------
+
+def build_v1_payload(
+    mode: str,
+    model: str,
+    prompt: str,
+    resolution: str,
+    duration: int,
+    prompt_optimizer: bool,
+    fast_preprocessing: bool,
+    first_frame_image=None,
+    last_frame_image=None,
+    ref_image=None,
+) -> Dict[str, Any]:
+    """Construct the V1 request payload, omitting parameters that are not
+    documented for the selected mode.
+
+    ``fast_pretreatment`` is documented for Text-to-Video and Image-to-Video
+    but NOT for First + Last Frame, so it is conditionally included.
+    """
+    payload: Dict[str, Any] = {
+        "model": model,
+        "prompt": prompt,
+        "duration": duration,
+        "resolution": resolution,
+        "prompt_optimizer": prompt_optimizer,
+    }
+
+    if mode == "🖼️Image-to-Video":
+        chosen_ref = ref_image if ref_image is not None else first_frame_image
+        ref_pil = tensor_to_pil_rgb(chosen_ref)
+        payload["first_frame_image"] = pil_to_data_url_jpeg(ref_pil)
+        payload["fast_pretreatment"] = fast_preprocessing
+    elif mode == "📝Text-to-Video":
+        payload["fast_pretreatment"] = fast_preprocessing
+    elif mode == "🧷First + Last Frame":
+        # fast_pretreatment is NOT documented for First + Last Frame.
+        first_pil = tensor_to_pil_rgb(first_frame_image)
+        last_pil = tensor_to_pil_rgb(last_frame_image)
+        payload["first_frame_image"] = pil_to_data_url_jpeg(first_pil)
+        payload["last_frame_image"] = pil_to_data_url_jpeg(last_pil)
+
+    return payload
 
 
 # ---------------------------------------------------------------------------
@@ -245,16 +309,16 @@ class MinimaxVideoGenerate:
 
         # ---- Local validation ----------------------------------------------
         if mode == "📝Text-to-Video":
-            _validate_v1_text_to_video(model, resolution, duration_str)
+            _validate_v1_text_to_video(model, resolution, duration_str, prompt)
         elif mode == "🖼️Image-to-Video":
-            _validate_v1_image_to_video(model, resolution, duration_str)
+            _validate_v1_image_to_video(model, resolution, duration_str, prompt)
             if ref_image is None and first_frame_image is None:
                 raise ValueError(
                     "Image-to-Video requires 🖼️Reference Image (for Image-to-Video) "
                     "or 🖼️First Frame Image."
                 )
         elif mode == "🧷First + Last Frame":
-            _validate_v1_first_last_frame(model, resolution, duration_str)
+            _validate_v1_first_last_frame(model, resolution, duration_str, prompt)
             if first_frame_image is None:
                 raise ValueError("First + Last Frame requires 🖼️First Frame Image.")
             if last_frame_image is None:
@@ -263,25 +327,18 @@ class MinimaxVideoGenerate:
             raise ValueError(f"Unknown generation mode: '{mode}'.")
 
         # ---- Build V1 request payload --------------------------------------
-        payload: Dict[str, Any] = {
-            "model": model,
-            "prompt": prompt,
-            "duration": duration,
-            "resolution": resolution,
-            "prompt_optimizer": prompt_optimizer,
-            "fast_pretreatment": fast_preprocessing,
-        }
-
-        if mode == "🖼️Image-to-Video":
-            chosen_ref = ref_image if ref_image is not None else first_frame_image
-            ref_pil = tensor_to_pil_rgb(chosen_ref)
-            payload["first_frame_image"] = pil_to_data_url_jpeg(ref_pil)
-
-        elif mode == "🧷First + Last Frame":
-            first_pil = tensor_to_pil_rgb(first_frame_image)
-            last_pil = tensor_to_pil_rgb(last_frame_image)
-            payload["first_frame_image"] = pil_to_data_url_jpeg(first_pil)
-            payload["last_frame_image"] = pil_to_data_url_jpeg(last_pil)
+        payload = build_v1_payload(
+            mode=mode,
+            model=model,
+            prompt=prompt,
+            resolution=resolution,
+            duration=duration,
+            prompt_optimizer=prompt_optimizer,
+            fast_preprocessing=fast_preprocessing,
+            first_frame_image=first_frame_image,
+            last_frame_image=last_frame_image,
+            ref_image=ref_image,
+        )
 
         # ---- 1. Create the V1 task ----------------------------------------
         create_url = f"{base_url}{V1_PATH_VIDEO_GENERATION}"
