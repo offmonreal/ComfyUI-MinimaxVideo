@@ -4,8 +4,8 @@ Re-exports the V1 (Hailuo) and V2 (H3) node classes plus their display-name
 mappings so ComfyUI can discover both nodes through this module.
 """
 
-from minimax_hailuo_v1 import MinimaxVideoGenerate
-from minimax_h3_v2 import MinimaxH3VideoGenerate
+from .minimax_hailuo_v1 import MinimaxVideoGenerate
+from .minimax_h3_v2 import MinimaxH3VideoGenerate
 
 
 NODE_CLASS_MAPPINGS = {
