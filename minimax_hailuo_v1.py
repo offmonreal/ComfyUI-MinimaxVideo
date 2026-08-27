@@ -137,9 +137,7 @@ def _validate_v1_text_to_video(
 def _validate_v1_image_to_video(
     model: str, resolution: str, duration: str, prompt: str
 ) -> None:
-    # Official V1 I2V also requires a non-empty prompt.
-    if not prompt or not prompt.strip():
-        raise ValueError("Image-to-Video requires a non-empty prompt in V1.")
+    # V1 Image-to-Video accepts an empty prompt (image-conditioned).
     matrix = V1_IMAGE_TO_VIDEO_MATRIX.get(model)
     if matrix is None:
         raise ValueError(
@@ -161,11 +159,7 @@ def _validate_v1_image_to_video(
 def _validate_v1_first_last_frame(
     model: str, resolution: str, duration: str, prompt: str
 ) -> None:
-    # First + Last Frame also requires a non-empty prompt per official docs.
-    if not prompt or not prompt.strip():
-        raise ValueError(
-            "First + Last Frame requires a non-empty prompt in V1."
-        )
+    # V1 First + Last Frame accepts an empty prompt (image-conditioned).
     if model != "MiniMax-Hailuo-02":
         raise ValueError(
             "First + Last Frame mode requires the MiniMax-Hailuo-02 model in V1. "
@@ -259,7 +253,7 @@ class MinimaxVideoGenerate:
                 "🎬Generation Mode": (["📝Text-to-Video", "🖼️Image-to-Video", "🧷First + Last Frame"],),
                 "📝Prompt": ("STRING", {"multiline": True, "default": ""}),
                 "🧠Model": (V1_MODELS, {"default": "MiniMax-Hailuo-2.3"}),
-                "🖼️Resolution": (["768P", "1080P", "720P", "512P"], {"default": "768P"}),
+                "🖼️Resolution": (["512P", "768P", "1080P"], {"default": "768P"}),
                 "⏱️Duration (seconds)": (["6", "10"], {"default": "6"}),
                 "✨Prompt Optimizer": ("BOOLEAN", {"default": True}),
                 "⚡Fast Preprocessing": ("BOOLEAN", {"default": False}),
